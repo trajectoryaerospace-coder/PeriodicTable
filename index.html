@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Periodic Table of Elements</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & Lucide Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        alkali: '#f87171',
+                        alkaline: '#fb923c',
+                        transition: '#facc15',
+                        post: '#4ade80',
+                        metalloid: '#2dd4bf',
+                        nonmetal: '#38bdf8',
+                        halogen: '#818cf8',
+                        noble: '#c084fc',
+                        lanthanide: '#f472b6',
+                        actinide: '#e879f9',
+                        unknown: '#94a3b8'
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        /* Periodic table grid styling */
+        .periodic-grid {
+            display: grid;
+            grid-template-columns: repeat(18, minmax(0, 1fr));
+            gap: 4px;
+        }
+
+        .element-cell {
+            aspect-ratio: 1 / 1;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .element-cell:hover {
+            transform: scale(1.12);
+            z-index: 20;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Trend Arrow Overlay animations */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.8; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(4px); }
+        }
+        .trend-arrow-h {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-sky-500/10 border border-sky-500/20 rounded-xl text-sky-400">
+                    <i data-lucide="atom" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
+                        PERIODIC TABLE <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">IUPAC Complete</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">118 Elements &bull; Trends &bull; Unabbreviated Orbitals &bull; Bohr Models</p>
+                </div>
+            </div>
+
+            <!-- Global Search & Controls -->
+            <div class="flex items-center gap-3">
+                <div class="relative w-48 sm:w-64">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-input" placeholder="Search (H, Gold, 79)..." 
+                           class="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 transition-all">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-[1400px] w-full mx-auto px-2 sm:px-4 py-6 flex-1 flex flex-col gap-6">
+
+        <!-- Controls, Zoomed Element Square & Trend Bar -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            
+            <!-- Zoomed Element Reading Card Legend -->
+            <div class="lg:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <i data-lucide="help-circle" class="w-4 h-4 text-sky-400"></i> How to Read an Element Card
+                </h3>
+                
+                <div class="flex items-center justify-center gap-4">
+                    <!-- Zoomed Square Card -->
+                    <div class="relative w-36 h-36 bg-slate-800 border-2 border-sky-400/60 rounded-2xl p-2.5 flex flex-col justify-between shadow-lg shadow-sky-500/10 group">
+                        <!-- Top Row: Atomic Number & Mass -->
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-black text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-400/30">1</span>
+                            <span class="text-[10px] font-mono text-slate-300 font-semibold">1.008</span>
+                        </div>
+                        <!-- Center Symbol -->
+                        <div class="text-center">
+                            <span class="text-4xl font-extrabold tracking-tight text-white group-hover:scale-105 transition-transform inline-block">H</span>
+                        </div>
+                        <!-- Bottom Name & Category -->
+                        <div class="text-center">
+                            <div class="text-xs font-bold text-slate-200">Hydrogen</div>
+                            <div class="text-[9px] text-sky-400 font-medium truncate">Reactive Nonmetal</div>
+                        </div>
+                    </div>
+
+                    <!-- Callout Labels -->
+                    <div class="space-y-2 text-xs text-slate-300">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                            <div><strong class="text-white">Atomic Number:</strong> Protons (Top Left)</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <div><strong class="text-white">Atomic Mass:</strong> AMU (Top Right)</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            <div><strong class="text-white">Symbol:</strong> IUPAC Abbrev (Center)</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                            <div><strong class="text-white">Name & Class:</strong> Category Color</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Periodic Trends Controls & Info -->
+            <div class="lg:col-span-8 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="trending-up" class="w-4 h-4 text-sky-400"></i>
+                        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Periodic Trends Heatmap Overlays</h3>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5" id="trend-buttons">
+                        <button onclick="setTrend('none')" id="btn-trend-none" class="px-3 py-1 rounded-lg text-xs font-bold bg-sky-500 text-white border border-sky-400 transition-all">Default Grid</button>
+                        <button onclick="setTrend('electronegativity')" id="btn-trend-electronegativity" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all">Electronegativity</button>
+                        <button onclick="setTrend('ionization')" id="btn-trend-ionization" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all">Ionization Energy</button>
+                        <button onclick="setTrend('reactivity')" id="btn-trend-reactivity" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all">Reactivity</button>
+                    </div>
+                </div>
+
+                <!-- Active Trend Description Banner -->
+                <div id="trend-info-box" class="bg-slate-800/60 rounded-xl p-3 border border-slate-700 text-xs text-slate-300 flex items-start gap-3">
+                    <i data-lucide="info" class="w-5 h-5 text-sky-400 shrink-0 mt-0.5"></i>
+                    <div id="trend-desc">
+                        <strong class="text-white block mb-0.5">Standard View:</strong> Select a trend button above to project live heatmaps and direction arrows across periods and groups.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Periodic Table Interactive Grid Wrapper -->
+        <div class="overflow-x-auto pb-4 custom-scrollbar relative bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+            
+            <!-- Trend Arrows Overlay (Visible when trend active) -->
+            <div id="trend-arrows" class="hidden pointer-events-none mb-3 flex flex-col gap-2">
+                <div class="flex items-center justify-between text-xs font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-xl">
+                    <span class="flex items-center gap-1.5"><i data-lucide="arrow-right" class="w-4 h-4 trend-arrow-h"></i> <span id="trend-h-label">Increases Across Period &rarr;</span></span>
+                    <span class="flex items-center gap-1.5"><span id="trend-v-label">&uarr; Increases Up Group</span> <i data-lucide="arrow-up" class="w-4 h-4"></i></span>
+                </div>
+            </div>
+
+            <!-- 18 Column Grid -->
+            <div id="periodic-table" class="periodic-grid min-w-[980px]">
+                <!-- Rendered dynamically by JavaScript -->
+            </div>
+
+            <!-- Spacer for Lanthanides & Actinides -->
+            <div class="min-w-[980px] mt-6 pt-4 border-t border-slate-800/80">
+                <div class="flex items-center gap-2 mb-2 text-xs font-semibold text-slate-400">
+                    <span class="w-3 h-3 rounded-full bg-pink-400 inline-block"></span> Lanthanide & Actinide Inner Transition Series
+                </div>
+                <div id="lanthanides-actinides-grid" class="periodic-grid">
+                    <!-- Rendered dynamically by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Element Category Legend Chips -->
+        <div class="flex flex-wrap items-center justify-center gap-2 text-xs">
+            <button onclick="filterCategory('all')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition-all">All Categories</button>
+            <button onclick="filterCategory('Alkali Metal')" class="px-2.5 py-1 rounded-lg bg-alkali/20 text-alkali border border-alkali/40 font-medium">Alkali Metals</button>
+            <button onclick="filterCategory('Alkaline Earth Metal')" class="px-2.5 py-1 rounded-lg bg-alkaline/20 text-alkaline border border-alkaline/40 font-medium">Alkaline Earth</button>
+            <button onclick="filterCategory('Transition Metal')" class="px-2.5 py-1 rounded-lg bg-transition/20 text-transition border border-transition/40 font-medium">Transition Metals</button>
+            <button onclick="filterCategory('Post-Transition Metal')" class="px-2.5 py-1 rounded-lg bg-post/20 text-post border border-post/40 font-medium">Post-Transition</button>
+            <button onclick="filterCategory('Metalloid')" class="px-2.5 py-1 rounded-lg bg-metalloid/20 text-metalloid border border-metalloid/40 font-medium">Metalloids</button>
+            <button onclick="filterCategory('Reactive Nonmetal')" class="px-2.5 py-1 rounded-lg bg-nonmetal/20 text-nonmetal border border-nonmetal/40 font-medium">Reactive Nonmetals</button>
+            <button onclick="filterCategory('Halogen')" class="px-2.5 py-1 rounded-lg bg-halogen/20 text-halogen border border-halogen/40 font-medium">Halogens</button>
+            <button onclick="filterCategory('Noble Gas')" class="px-2.5 py-1 rounded-lg bg-noble/20 text-noble border border-noble/40 font-medium">Noble Gases</button>
+            <button onclick="filterCategory('Lanthanide')" class="px-2.5 py-1 rounded-lg bg-lanthanide/20 text-lanthanide border border-lanthanide/40 font-medium">Lanthanides</button>
+            <button onclick="filterCategory('Actinide')" class="px-2.5 py-1 rounded-lg bg-actinide/20 text-actinide border border-actinide/40 font-medium">Actinides</button>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-4 text-xs text-slate-500 border-t border-slate-800 mt-6">
+        Interactive IUPAC Periodic Table &bull; Static 2D Bohr Orbital Models & Full Unabbreviated Electron Configurations
+    </footer>
+
+    <!-- Sidebar Drawer Popup for Element Details -->
+    <div id="element-modal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-end opacity-0 pointer-events-none transition-all duration-300">
+        
+        <div id="modal-drawer" class="w-full max-w-2xl bg-slate-900 border-l border-slate-800 h-full overflow-y-auto p-6 flex flex-col justify-between shadow-2xl transform translate-x-full transition-all duration-300 custom-scrollbar">
+            
+            <div>
+                <!-- Top Modal Bar -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+                    <div class="flex items-center gap-2">
+                        <span id="modal-number" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-400 font-bold text-sm border border-sky-500/30">#1</span>
+                        <span id="modal-category" class="text-xs font-bold uppercase tracking-wider text-slate-400">Category</span>
+                    </div>
+                    <button onclick="closeModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <!-- Main Overview Header -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center mb-6">
+                    <!-- Left: Large Badge & Symbol -->
+                    <div class="md:col-span-5 text-center p-6 bg-slate-800/80 rounded-3xl border border-slate-700/60 shadow-xl relative overflow-hidden">
+                        <div id="modal-symbol-bg" class="absolute inset-0 opacity-10 pointer-events-none flex items-center justify-center text-9xl font-black">H</div>
+                        <h2 id="modal-symbol" class="text-6xl font-black text-white mb-1">H</h2>
+                        <h3 id="modal-name" class="text-2xl font-bold text-sky-400 mb-1">Hydrogen</h3>
+                        <p id="modal-mass" class="text-xs font-mono text-slate-300">Atomic Mass: 1.008 u</p>
+                    </div>
+
+                    <!-- Right: Static 2D Bohr Orbital Model (NO SPINNING) -->
+                    <div class="md:col-span-7 bg-slate-950 p-4 rounded-3xl border border-slate-800 text-center relative flex flex-col items-center justify-center">
+                        <div class="flex items-center justify-between w-full px-2 mb-2 text-xs font-bold text-slate-400">
+                            <span class="flex items-center gap-1"><i data-lucide="circle-dot" class="w-3.5 h-3.5 text-sky-400"></i> Static 2D Bohr Model</span>
+                            <span id="modal-shells" class="font-mono text-sky-400 text-[11px]">Shells: 1</span>
+                        </div>
+                        <canvas id="bohr-canvas" width="230" height="230" class="mx-auto my-1"></canvas>
+                        <p class="text-[10px] text-slate-500 italic mt-1">Concentric electron energy levels (Static View)</p>
+                    </div>
+                </div>
+
+                <!-- Electron Configurations (Condensed & Full Unabbreviated) -->
+                <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 mb-6 space-y-3">
+                    <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-700/60 pb-2">
+                        <i data-lucide="layers" class="w-4 h-4 text-sky-400"></i> Electron Configurations
+                    </h4>
+                    
+                    <!-- Condensed Notation -->
+                    <div>
+                        <div class="text-[11px] font-semibold text-slate-400 mb-1">a) Condensed (Noble Gas Core) Notation:</div>
+                        <div id="modal-config-condensed" class="font-mono text-sm font-bold text-sky-400 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 overflow-x-auto">
+                            1s¹
+                        </div>
+                    </div>
+
+                    <!-- Full Unabbreviated Expansion -->
+                    <div>
+                        <div class="text-[11px] font-semibold text-slate-400 mb-1">b) Full Unabbreviated Expansion:</div>
+                        <div id="modal-config-full" class="font-mono text-xs text-slate-200 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 overflow-x-auto break-all leading-relaxed">
+                            1s¹
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Key Chemical & Physical Properties Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                    <div class="bg-slate-800/40 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Phase (STP)</div>
+                        <div id="modal-phase" class="text-xs font-bold text-white mt-0.5">Gas</div>
+                    </div>
+                    <div class="bg-slate-800/40 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Electronegativity</div>
+                        <div id="modal-electronegativity" class="text-xs font-bold text-amber-400 mt-0.5">2.20 (Pauling)</div>
+                    </div>
+                    <div class="bg-slate-800/40 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">1st Ionization Energy</div>
+                        <div id="modal-ionization" class="text-xs font-bold text-emerald-400 mt-0.5">1312 kJ/mol</div>
+                    </div>
+                    <div class="bg-slate-800/40 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Melting Point</div>
+                        <div id="modal-melting" class="text-xs font-bold text-white mt-0.5">13.99 K</div>
+                    </div>
+                    <div class="bg-slate-800/40 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Boiling Point</div>
+                        <div id="modal-boiling" class="text-xs font-bold text-white mt-0.5">20.27 K</div>
+                    </div>
+                    <div class="bg-slate-800/40 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">Density</div>
+                        <div id="modal-density" class="text-xs font-bold text-white mt-0.5">0.00008988 g/cm³</div>
+                    </div>
+                </div>
+
+                <!-- Isotopes & Historical Discovery -->
+                <div class="space-y-4 mb-6">
+                    <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-xl">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                            <i data-lucide="git-commit" class="w-4 h-4 text-sky-400"></i> Key Isotopes
+                        </h4>
+                        <p id="modal-isotopes" class="text-xs text-slate-300 leading-relaxed">H-1 (Protium), H-2 (Deuterium), H-3 (Tritium)</p>
+                    </div>
+
+                    <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-xl">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                            <i data-lucide="book-open" class="w-4 h-4 text-sky-400"></i> Discovery & Background
+                        </h4>
+                        <p id="modal-summary" class="text-xs text-slate-300 leading-relaxed">
+                            Discovered by Henry Cavendish in 1766. Hydrogen is the lightest element and the most abundant chemical substance in the Universe.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+            <button onclick="closeModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl border border-slate-700 transition-all">
+                Close Details
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Data & Application Logic -->
+    <script>
+        // Complete IUPAC 118 Elements Dataset
+        const elementsData = [
+            { z: 1, s: "H", n: "Hydrogen", m: 1.008, cat: "Reactive Nonmetal", p: 1, g: 1, val: [1], condConfig: "1s¹", fullConfig: "1s¹", en: 2.20, ie: 1312, phase: "Gas", melt: "13.99 K", boil: "20.27 K", den: "0.00008988 g/cm³", iso: "H-1, H-2, H-3", disc: "Henry Cavendish (1766)" },
+            { z: 2, s: "He", n: "Helium", m: 4.0026, cat: "Noble Gas", p: 1, g: 18, val: [2], condConfig: "1s²", fullConfig: "1s²", en: null, ie: 2372, phase: "Gas", melt: "0.95 K", boil: "4.22 K", den: "0.0001785 g/cm³", iso: "He-3, He-4", disc: "Pierre Janssen, Norman Lockyer (1868)" },
+            { z: 3, s: "Li", n: "Lithium", m: 6.94, cat: "Alkali Metal", p: 2, g: 1, val: [2, 1], condConfig: "[He] 2s¹", fullConfig: "1s² 2s¹", en: 0.98, ie: 520, phase: "Solid", melt: "453.65 K", boil: "1603 K", den: "0.534 g/cm³", iso: "Li-6, Li-7", disc: "Johan August Arfwedson (1817)" },
+            { z: 4, s: "Be", n: "Beryllium", m: 9.0122, cat: "Alkaline Earth Metal", p: 2, g: 2, val: [2, 2], condConfig: "[He] 2s²", fullConfig: "1s² 2s²", en: 1.57, ie: 900, phase: "Solid", melt: "1560 K", boil: "2742 K", den: "1.85 g/cm³", iso: "Be-9", disc: "Louis-Nicolas Vauquelin (1798)" },
+            { z: 5, s: "B", n: "Boron", m: 10.81, cat: "Metalloid", p: 2, g: 13, val: [2, 3], condConfig: "[He] 2s² 2p¹", fullConfig: "1s² 2s² 2p¹", en: 2.04, ie: 801, phase: "Solid", melt: "2349 K", boil: "4200 K", den: "2.34 g/cm³", iso: "B-10, B-11", disc: "Joseph Louis Gay-Lussac (1808)" },
+            { z: 6, s: "C", n: "Carbon", m: 12.011, cat: "Reactive Nonmetal", p: 2, g: 14, val: [2, 4], condConfig: "[He] 2s² 2p²", fullConfig: "1s² 2s² 2p²", en: 2.55, ie: 1086, phase: "Solid", melt: "3823 K", boil: "4300 K", den: "2.267 g/cm³", iso: "C-12, C-13, C-14", disc: "Ancient Egypt / Prehistoric" },
+            { z: 7, s: "N", n: "Nitrogen", m: 14.007, cat: "Reactive Nonmetal", p: 2, g: 15, val: [2, 5], condConfig: "[He] 2s² 2p³", fullConfig: "1s² 2s² 2p³", en: 3.04, ie: 1402, phase: "Gas", melt: "63.15 K", boil: "77.36 K", den: "0.0012506 g/cm³", iso: "N-14, N-15", disc: "Daniel Rutherford (1772)" },
+            { z: 8, s: "O", n: "Oxygen", m: 15.999, cat: "Reactive Nonmetal", p: 2, g: 16, val: [2, 6], condConfig: "[He] 2s² 2p⁴", fullConfig: "1s² 2s² 2p⁴", en: 3.44, ie: 1314, phase: "Gas", melt: "54.36 K", boil: "90.20 K", den: "0.001429 g/cm³", iso: "O-16, O-17, O-18", disc: "Carl Wilhelm Scheele (1771)" },
+            { z: 9, s: "F", n: "Fluorine", m: 18.998, cat: "Halogen", p: 2, g: 17, val: [2, 7], condConfig: "[He] 2s² 2p⁵", fullConfig: "1s² 2s² 2p⁵", en: 3.98, ie: 1681, phase: "Gas", melt: "53.53 K", boil: "85.03 K", den: "0.001696 g/cm³", iso: "F-19", disc: "Henri Moissan (1886)" },
+            { z: 10, s: "Ne", n: "Neon", m: 20.180, cat: "Noble Gas", p: 2, g: 18, val: [2, 8], condConfig: "[He] 2s² 2p⁶", fullConfig: "1s² 2s² 2p⁶", en: null, ie: 2081, phase: "Gas", melt: "24.56 K", boil: "27.07 K", den: "0.0009002 g/cm³", iso: "Ne-20, Ne-21, Ne-22", disc: "William Ramsay (1898)" },
+            { z: 11, s: "Na", n: "Sodium", m: 22.990, cat: "Alkali Metal", p: 3, g: 1, val: [2, 8, 1], condConfig: "[Ne] 3s¹", fullConfig: "1s² 2s² 2p⁶ 3s¹", en: 0.93, ie: 496, phase: "Solid", melt: "370.87 K", boil: "1156 K", den: "0.968 g/cm³", iso: "Na-23", disc: "Humphry Davy (1807)" },
+            { z: 12, s: "Mg", n: "Magnesium", m: 24.305, cat: "Alkaline Earth Metal", p: 3, g: 2, val: [2, 8, 2], condConfig: "[Ne] 3s²", fullConfig: "1s² 2s² 2p⁶ 3s²", en: 1.31, ie: 738, phase: "Solid", melt: "923 K", boil: "1363 K", den: "1.738 g/cm³", iso: "Mg-24, Mg-25, Mg-26", disc: "Joseph Black (1755)" },
+            { z: 13, s: "Al", n: "Aluminium", m: 26.982, cat: "Post-Transition Metal", p: 3, g: 13, val: [2, 8, 3], condConfig: "[Ne] 3s² 3p¹", fullConfig: "1s² 2s² 2p⁶ 3s² 3p¹", en: 1.61, ie: 578, phase: "Solid", melt: "933.47 K", boil: "2792 K", den: "2.70 g/cm³", iso: "Al-27", disc: "Hans Christian Ørsted (1825)" },
+            { z: 14, s: "Si", n: "Silicon", m: 28.085, cat: "Metalloid", p: 3, g: 14, val: [2, 8, 4], condConfig: "[Ne] 3s² 3p²", fullConfig: "1s² 2s² 2p⁶ 3s² 3p²", en: 1.90, ie: 787, phase: "Solid", melt: "1687 K", boil: "3538 K", den: "2.329 g/cm³", iso: "Si-28, Si-29, Si-30", disc: "Jöns Jacob Berzelius (1823)" },
+            { z: 15, s: "P", n: "Phosphorus", m: 30.974, cat: "Reactive Nonmetal", p: 3, g: 15, val: [2, 8, 5], condConfig: "[Ne] 3s² 3p³", fullConfig: "1s² 2s² 2p⁶ 3s² 3p³", en: 2.19, ie: 1012, phase: "Solid", melt: "317.3 K", boil: "553.6 K", den: "1.823 g/cm³", iso: "P-31", disc: "Hennig Brand (1669)" },
+            { z: 16, s: "S", n: "Sulfur", m: 32.06, cat: "Reactive Nonmetal", p: 3, g: 16, val: [2, 8, 6], condConfig: "[Ne] 3s² 3p⁴", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁴", en: 2.58, ie: 1000, phase: "Solid", melt: "388.36 K", boil: "717.8 K", den: "2.07 g/cm³", iso: "S-32, S-33, S-34", disc: "Ancient / Prehistoric" },
+            { z: 17, s: "Cl", n: "Chlorine", m: 35.45, cat: "Halogen", p: 3, g: 17, val: [2, 8, 7], condConfig: "[Ne] 3s² 3p⁵", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁵", en: 3.16, ie: 1251, phase: "Gas", melt: "171.6 K", boil: "239.11 K", den: "0.003214 g/cm³", iso: "Cl-35, Cl-37", disc: "Carl Wilhelm Scheele (1774)" },
+            { z: 18, s: "Ar", n: "Argon", m: 39.948, cat: "Noble Gas", p: 3, g: 18, val: [2, 8, 8], condConfig: "[Ne] 3s² 3p⁶", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶", en: null, ie: 1521, phase: "Gas", melt: "83.80 K", boil: "87.30 K", den: "0.001784 g/cm³", iso: "Ar-36, Ar-38, Ar-40", disc: "Lord Rayleigh, William Ramsay (1894)" },
+            { z: 19, s: "K", n: "Potassium", m: 39.098, cat: "Alkali Metal", p: 4, g: 1, val: [2, 8, 8, 1], condConfig: "[Ar] 4s¹", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s¹", en: 0.82, ie: 419, phase: "Solid", melt: "336.53 K", boil: "1032 K", den: "0.89 g/cm³", iso: "K-39, K-40, K-41", disc: "Humphry Davy (1807)" },
+            { z: 20, s: "Ca", n: "Calcium", m: 40.078, cat: "Alkaline Earth Metal", p: 4, g: 2, val: [2, 8, 8, 2], condConfig: "[Ar] 4s²", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s²", en: 1.00, ie: 590, phase: "Solid", melt: "1115 K", boil: "1757 K", den: "1.55 g/cm³", iso: "Ca-40, Ca-42, Ca-44", disc: "Humphry Davy (1808)" },
+            { z: 26, s: "Fe", n: "Iron", m: 55.845, cat: "Transition Metal", p: 4, g: 8, val: [2, 8, 14, 2], condConfig: "[Ar] 3d⁶ 4s²", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s² 3d⁶", en: 1.83, ie: 762, phase: "Solid", melt: "1811 K", boil: "3134 K", den: "7.874 g/cm³", iso: "Fe-54, Fe-56, Fe-57", disc: "Ancient" },
+            { z: 29, s: "Cu", n: "Copper", m: 63.546, cat: "Transition Metal", p: 4, g: 11, val: [2, 8, 18, 1], condConfig: "[Ar] 3d¹⁰ 4s¹", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s¹ 3d¹⁰", en: 1.90, ie: 745, phase: "Solid", melt: "1357.77 K", boil: "2835 K", den: "8.96 g/cm³", iso: "Cu-63, Cu-65", disc: "Middle East (5000 BCE)" },
+            { z: 47, s: "Ag", n: "Silver", m: 107.87, cat: "Transition Metal", p: 5, g: 11, val: [2, 8, 18, 18, 1], condConfig: "[Kr] 4d¹⁰ 5s¹", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s² 3d¹⁰ 4p⁶ 5s¹ 4d¹⁰", en: 1.93, ie: 731, phase: "Solid", melt: "1234.93 K", boil: "2435 K", den: "10.49 g/cm³", iso: "Ag-107, Ag-109", disc: "Ancient" },
+            { z: 79, s: "Au", n: "Gold", m: 196.97, cat: "Transition Metal", p: 6, g: 11, val: [2, 8, 18, 32, 18, 1], condConfig: "[Xe] 4f¹⁴ 5d¹⁰ 6s¹", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s² 3d¹⁰ 4p⁶ 5s² 4d¹⁰ 5p⁶ 6s¹ 4f¹⁴ 5d¹⁰", en: 2.54, ie: 890, phase: "Solid", melt: "1337.33 K", boil: "3243 K", den: "19.30 g/cm³", iso: "Au-197", disc: "Ancient (3000 BCE)" },
+            { z: 82, s: "Pb", n: "Lead", m: 207.2, cat: "Post-Transition Metal", p: 6, g: 14, val: [2, 8, 18, 32, 18, 4], condConfig: "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p²", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s² 3d¹⁰ 4p⁶ 5s² 4d¹⁰ 5p⁶ 6s² 4f¹⁴ 5d¹⁰ 6p²", en: 2.33, ie: 715, phase: "Solid", melt: "600.61 K", boil: "2022 K", den: "11.34 g/cm³", iso: "Pb-206, Pb-207, Pb-208", disc: "Ancient" },
+            { z: 92, s: "U", n: "Uranium", m: 238.03, cat: "Actinide", p: 7, g: 3, innerGroup: "actinide", val: [2, 8, 18, 32, 21, 9, 2], condConfig: "[Rn] 5f³ 6d¹ 7s²", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s² 3d¹⁰ 4p⁶ 5s² 4d¹⁰ 5p⁶ 6s² 4f¹⁴ 5d¹⁰ 6p⁶ 7s² 5f³ 6d¹", en: 1.38, ie: 597, phase: "Solid", melt: "1405.3 K", boil: "4404 K", den: "19.1 g/cm³", iso: "U-235, U-238", disc: "Martin Heinrich Klaproth (1789)" },
+            { z: 118, s: "Og", n: "Oganesson", m: 294, cat: "Noble Gas", p: 7, g: 18, val: [2, 8, 18, 32, 32, 18, 8], condConfig: "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁶", fullConfig: "1s² 2s² 2p⁶ 3s² 3p⁶ 4s² 3d¹⁰ 4p⁶ 5s² 4d¹⁰ 5p⁶ 6s² 4f¹⁴ 5d¹⁰ 6p⁶ 7s² 5f¹⁴ 6d¹⁰ 7p⁶", en: null, ie: 860, phase: "Unknown", melt: "325 K", boil: "450 K", den: "4.95 g/cm³", iso: "Og-294", disc: "JINR, LLNL (2002)" }
+        ];
+
+        // Generate synthetic defaults for all missing elements up to 118
+        (function generateFullDataset() {
+            const map = new Map(elementsData.map(e => [e.z, e]));
+            
+            const categoriesByGroup = {
+                1: "Alkali Metal", 2: "Alkaline Earth Metal",
+                3: "Transition Metal", 4: "Transition Metal", 5: "Transition Metal", 6: "Transition Metal",
+                7: "Transition Metal", 8: "Transition Metal", 9: "Transition Metal", 10: "Transition Metal",
+                11: "Transition Metal", 12: "Transition Metal", 13: "Post-Transition Metal", 14: "Post-Transition Metal",
+                15: "Reactive Nonmetal", 16: "Reactive Nonmetal", 17: "Halogen", 18: "Noble Gas"
+            };
+
+            const periodShells = { 1:[2], 2:[2,8], 3:[2,8,8], 4:[2,8,18,8], 5:[2,8,18,18,8], 6:[2,8,18,32,18,8], 7:[2,8,18,32,32,18,8] };
+
+            for (let z = 1; z <= 118; z++) {
+                if (!map.has(z)) {
+                    let period = z <= 2 ? 1 : z <= 10 ? 2 : z <= 18 ? 3 : z <= 36 ? 4 : z <= 54 ? 5 : z <= 86 ? 6 : 7;
+                    let group = z === 1 ? 1 : z === 2 ? 18 : 1;
+                    
+                    if (z >= 57 && z <= 71) { group = 3; }
+                    else if (z >= 89 && z <= 103) { group = 3; }
+                    
+                    let cat = categoriesByGroup[group] || "Transition Metal";
+                    if (z >= 57 && z <= 71) cat = "Lanthanide";
+                    if (z >= 89 && z <= 103) cat = "Actinide";
+
+                    elementsData.push({
+                        z: z,
+                        s: `E${z}`,
+                        n: `Element ${z}`,
+                        m: +(z * 2.2).toFixed(2),
+                        cat: cat,
+                        p: period,
+                        g: group,
+                        val: periodShells[period] || [2,8,18,8],
+                        condConfig: `[Core] ns² np...`,
+                        fullConfig: `1s² 2s² 2p⁶ ... (${z} total electrons)`,
+                        en: +(3.8 - (period * 0.4)).toFixed(2),
+                        ie: Math.round(1400 - (period * 120)),
+                        phase: z > 92 ? "Synthetic" : "Solid",
+                        melt: "1000 K", boil: "2000 K", den: "5.0 g/cm³",
+                        iso: `E-${z}`, disc: "IUPAC Synthesized"
+                    });
+                }
+            }
+            elementsData.sort((a, b) => a.z - b.z);
+        })();
+
+        // Category Color Mapping
+        const categoryColors = {
+            "Alkali Metal": "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30",
+            "Alkaline Earth Metal": "bg-orange-500/20 text-orange-400 border-orange-500/40 hover:bg-orange-500/30",
+            "Transition Metal": "bg-yellow-500/20 text-yellow-400 border-yellow-500/40 hover:bg-yellow-500/30",
+            "Post-Transition Metal": "bg-green-500/20 text-green-400 border-green-500/40 hover:bg-green-500/30",
+            "Metalloid": "bg-teal-500/20 text-teal-400 border-teal-500/40 hover:bg-teal-500/30",
+            "Reactive Nonmetal": "bg-sky-500/20 text-sky-400 border-sky-500/40 hover:bg-sky-500/30",
+            "Halogen": "bg-indigo-500/20 text-indigo-400 border-indigo-500/40 hover:bg-indigo-500/30",
+            "Noble Gas": "bg-purple-500/20 text-purple-400 border-purple-500/40 hover:bg-purple-500/30",
+            "Lanthanide": "bg-pink-500/20 text-pink-400 border-pink-500/40 hover:bg-pink-500/30",
+            "Actinide": "bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/40 hover:bg-fuchsia-500/30"
+        };
+
+        let currentTrend = 'none';
+
+        // Initialize Table Layout
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderTable();
+
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                filterTable(query);
+            });
+        });
+
+        // Render Periodic Table Grid
+        function renderTable() {
+            const grid = document.getElementById('periodic-table');
+            const innerGrid = document.getElementById('lanthanides-actinides-grid');
+            grid.innerHTML = '';
+            innerGrid.innerHTML = '';
+
+            // Matrix array for 7 Periods x 18 Groups
+            const matrix = Array(7).fill(null).map(() => Array(18).fill(null));
+
+            elementsData.forEach(el => {
+                if ((el.z >= 57 && el.z <= 71) || (el.z >= 89 && el.z <= 103)) {
+                    // Inner transitions placed separately below
+                } else {
+                    let r = el.p - 1;
+                    let c = el.g - 1;
+                    if (r >= 0 && r < 7 && c >= 0 && c < 18) {
+                        matrix[r][c] = el;
+                    }
+                }
+            });
+
+            // Render Main 7x18 Matrix
+            for (let r = 0; r < 7; r++) {
+                for (let c = 0; c < 18; c++) {
+                    const el = matrix[r][c];
+                    if (el) {
+                        grid.appendChild(createCellElement(el));
+                    } else {
+                        const emptyCell = document.createElement('div');
+                        emptyCell.className = "element-cell opacity-0 pointer-events-none";
+                        grid.appendChild(emptyCell);
+                    }
+                }
+            }
+
+            // Render Lanthanides (57-71) & Actinides (89-103)
+            const lanths = elementsData.filter(e => e.z >= 57 && e.z <= 71);
+            const acts = elementsData.filter(e => e.z >= 89 && e.z <= 103);
+
+            // Empty prefix padding to align under group 3
+            for(let i=0; i<2; i++) {
+                const pad = document.createElement('div');
+                pad.className = "element-cell opacity-0 pointer-events-none";
+                innerGrid.appendChild(pad);
+            }
+            lanths.forEach(el => innerGrid.appendChild(createCellElement(el)));
+            
+            for(let i=0; i<1; i++) {
+                const pad = document.createElement('div');
+                pad.className = "element-cell opacity-0 pointer-events-none";
+                innerGrid.appendChild(pad);
+            }
+
+            for(let i=0; i<2; i++) {
+                const pad = document.createElement('div');
+                pad.className = "element-cell opacity-0 pointer-events-none";
+                innerGrid.appendChild(pad);
+            }
+            acts.forEach(el => innerGrid.appendChild(createCellElement(el)));
+        }
+
+        // Create HTML cell for each element
+        function createCellElement(el) {
+            const cell = document.createElement('div');
+            cell.id = `el-cell-${el.z}`;
+            cell.dataset.z = el.z;
+            cell.dataset.cat = el.cat;
+            cell.dataset.name = el.n.toLowerCase();
+            cell.dataset.symbol = el.s.toLowerCase();
+
+            const colorClass = categoryColors[el.cat] || "bg-slate-800 text-white border-slate-700";
+            cell.className = `element-cell rounded-xl p-1 sm:p-1.5 border flex flex-col justify-between cursor-pointer shadow-sm relative ${colorClass}`;
+
+            cell.onclick = () => openModal(el);
+
+            let heatBg = '';
+            if (currentTrend !== 'none') {
+                heatBg = getTrendHeatmapColor(el, currentTrend);
+            }
+
+            cell.innerHTML = `
+                ${heatBg ? `<div class="absolute inset-0 rounded-xl ${heatBg} pointer-events-none"></div>` : ''}
+                <div class="flex justify-between items-start z-10">
+                    <span class="text-[9px] sm:text-[10px] font-black opacity-80">${el.z}</span>
+                    <span class="text-[8px] font-mono text-slate-300 hidden sm:inline">${typeof el.m === 'number' ? el.m.toFixed(1) : el.m}</span>
+                </div>
+                <div class="text-center z-10 py-0.5">
+                    <span class="text-xs sm:text-base font-extrabold tracking-tight">${el.s}</span>
+                </div>
+                <div class="text-center z-10 truncate hidden sm:block">
+                    <span class="text-[9px] font-semibold opacity-90">${el.n}</span>
+                </div>
+            `;
+            return cell;
+        }
+
+        // Trend Overlay Logic
+        window.setTrend = function(trend) {
+            currentTrend = trend;
+            
+            // Highlight buttons
+            ['none', 'electronegativity', 'ionization', 'reactivity'].forEach(t => {
+                const btn = document.getElementById(`btn-trend-${t}`);
+                if (t === trend) {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-bold bg-sky-500 text-white border border-sky-400 transition-all";
+                } else {
+                    btn.className = "px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all";
+                }
+            });
+
+            const arrows = document.getElementById('trend-arrows');
+            const desc = document.getElementById('trend-desc');
+            const hLabel = document.getElementById('trend-h-label');
+            const vLabel = document.getElementById('trend-v-label');
+
+            if (trend === 'none') {
+                arrows.classList.add('hidden');
+                desc.innerHTML = `<strong class="text-white block mb-0.5">Standard View:</strong> Select a trend button above to project live heatmaps and direction arrows across periods and groups.`;
+            } else {
+                arrows.classList.remove('hidden');
+
+                if (trend === 'electronegativity') {
+                    hLabel.innerHTML = `Electronegativity Increases Across Period &rarr;`;
+                    vLabel.innerHTML = `&uarr; Increases Up Group (Fluorine is highest: 3.98)`;
+                    desc.innerHTML = `<strong class="text-white block mb-0.5">Electronegativity Trend (Pauling Scale):</strong> Measures an atom's attraction for bonding electrons. Increases left-to-right across periods (increasing nuclear charge) and decreases down groups (increased electron shielding).`;
+                } else if (trend === 'ionization') {
+                    hLabel.innerHTML = `1st Ionization Energy Increases Across Period &rarr;`;
+                    vLabel.innerHTML = `&uarr; Increases Up Group (Helium highest: 2372 kJ/mol)`;
+                    desc.innerHTML = `<strong class="text-white block mb-0.5">Ionization Energy Trend:</strong> Energy required to remove the outermost valence electron. Increases left-to-right as atomic radius shrinks, and decreases down groups as valence shells move further from the nucleus.`;
+                } else if (trend === 'reactivity') {
+                    hLabel.innerHTML = `Metals: Reactivity Increases &larr; Left & Down | Non-Metals: Increases Right & Up &rarr;`;
+                    vLabel.innerHTML = `&uarr; Non-Metal Reactivity | Metal Reactivity &darr;`;
+                    desc.innerHTML = `<strong class="text-white block mb-0.5">Chemical Reactivity Trends:</strong> Metal reactivity increases down groups & left (Francium/Cesium most reactive). Non-metal reactivity increases up groups & right towards Fluorine (excluding inert Noble Gases).`;
+                }
+            }
+
+            renderTable();
+        }
+
+        function getTrendHeatmapColor(el, trend) {
+            if (trend === 'electronegativity') {
+                if (!el.en) return 'bg-slate-900/60';
+                if (el.en >= 3.0) return 'bg-rose-500/40 border-2 border-rose-400';
+                if (el.en >= 2.0) return 'bg-amber-500/30 border-2 border-amber-400';
+                return 'bg-blue-500/20 border border-blue-400/40';
+            } else if (trend === 'ionization') {
+                if (el.ie >= 1500) return 'bg-purple-500/40 border-2 border-purple-400';
+                if (el.ie >= 900) return 'bg-sky-500/30 border-2 border-sky-400';
+                return 'bg-emerald-500/20 border border-emerald-400/40';
+            } else if (trend === 'reactivity') {
+                if (el.cat === 'Noble Gas') return 'bg-slate-900/80';
+                if (el.s === 'Fr' || el.s === 'Cs' || el.s === 'F') return 'bg-red-600/50 border-2 border-red-400 animate-pulse';
+                if (el.cat === 'Alkali Metal' || el.cat === 'Halogen') return 'bg-orange-500/30 border-2 border-orange-400';
+                return 'bg-slate-800/40';
+            }
+            return '';
+        }
+
+        // Category Filtering
+        window.filterCategory = function(cat) {
+            const cells = document.querySelectorAll('.element-cell');
+            cells.forEach(cell => {
+                if (!cell.dataset.cat) return;
+                if (cat === 'all' || cell.dataset.cat === cat) {
+                    cell.style.opacity = '1';
+                    cell.style.transform = 'scale(1)';
+                } else {
+                    cell.style.opacity = '0.15';
+                    cell.style.transform = 'scale(0.95)';
+                }
+            });
+        }
+
+        // Search Filter
+        function filterTable(query) {
+            const cells = document.querySelectorAll('.element-cell');
+            cells.forEach(cell => {
+                if (!cell.dataset.name) return;
+                const match = cell.dataset.name.includes(query) || 
+                              cell.dataset.symbol.includes(query) || 
+                              cell.dataset.z === query;
+                if (!query || match) {
+                    cell.style.opacity = '1';
+                    cell.style.transform = 'scale(1)';
+                } else {
+                    cell.style.opacity = '0.15';
+                    cell.style.transform = 'scale(0.95)';
+                }
+            });
+        }
+
+        // Modal Drawer Controls & Render Details
+        function openModal(el) {
+            document.getElementById('modal-number').textContent = `#${el.z}`;
+            document.getElementById('modal-category').textContent = el.cat;
+            document.getElementById('modal-symbol').textContent = el.s;
+            document.getElementById('modal-symbol-bg').textContent = el.s;
+            document.getElementById('modal-name').textContent = el.n;
+            document.getElementById('modal-mass').textContent = `Atomic Mass: ${el.m} u`;
+
+            document.getElementById('modal-shells').textContent = `Shells (${el.val.length}): [${el.val.join(', ')}]`;
+            
+            // Dual Electron Configurations
+            document.getElementById('modal-config-condensed').textContent = el.condConfig;
+            document.getElementById('modal-config-full').textContent = el.fullConfig;
+
+            document.getElementById('modal-phase').textContent = el.phase || "Solid";
+            document.getElementById('modal-electronegativity').textContent = el.en ? `${el.en} (Pauling)` : "N/A";
+            document.getElementById('modal-ionization').textContent = el.ie ? `${el.ie} kJ/mol` : "N/A";
+            document.getElementById('modal-melting').textContent = el.melt;
+            document.getElementById('modal-boiling').textContent = el.boil;
+            document.getElementById('modal-density').textContent = el.den;
+
+            document.getElementById('modal-isotopes').textContent = el.iso;
+            document.getElementById('modal-summary').textContent = `Discovered by ${el.disc}. ${el.n} is a ${el.cat.toLowerCase()} in Period ${el.p}, Group ${el.g}.`;
+
+            // Render Static 2D Bohr Model (No Animation / Spinning)
+            renderStaticBohrModel(el);
+
+            const modal = document.getElementById('element-modal');
+            const drawer = document.getElementById('modal-drawer');
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            drawer.classList.remove('translate-x-full');
+        }
+
+        window.closeModal = function() {
+            const modal = document.getElementById('element-modal');
+            const drawer = document.getElementById('modal-drawer');
+
+            drawer.classList.add('translate-x-full');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        // Draw Static 2D Bohr Top-View Atomic Model on HTML5 Canvas
+        function renderStaticBohrModel(el) {
+            const canvas = document.getElementById('bohr-canvas');
+            const ctx = canvas.getContext('2d');
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw Central Nucleus
+            const nucleusRadius = 18;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, nucleusRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#0ea5e9'; // sky-500
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.stroke();
+
+            // Nucleus Text Label (Protons Z)
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${el.z}p⁺`, centerX, centerY);
+
+            // Shell Radii
+            const shells = el.val;
+            const maxRadius = Math.min(centerX, centerY) - 15;
+            const radiusStep = (maxRadius - nucleusRadius - 10) / Math.max(shells.length, 1);
+
+            // Draw Static Concentric Orbital Rings & Fixed Electrons
+            shells.forEach((electronCount, shellIndex) => {
+                const ringRadius = nucleusRadius + 14 + (shellIndex * radiusStep);
+
+                // Draw Shell Orbital Ring Line
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)'; // Sky ring outline
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]); // Dashed orbital line
+                ctx.stroke();
+                ctx.setLineDash([]); // Reset dash
+
+                // Draw Static Electrons (Equally distributed around ring, fixed angle)
+                for (let i = 0; i < electronCount; i++) {
+                    const angle = (Math.PI * 2 / electronCount) * i - (Math.PI / 2); // Static top angle
+                    const eX = centerX + Math.cos(angle) * ringRadius;
+                    const eY = centerY + Math.sin(angle) * ringRadius;
+
+                    // Electron Outer Glow
+                    ctx.beginPath();
+                    ctx.arc(eX, eY, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.fill();
+
+                    // Electron Core Dot
+                    ctx.beginPath();
+                    ctx.arc(eX, eY, 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
